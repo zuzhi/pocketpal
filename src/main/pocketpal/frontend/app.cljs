@@ -3,11 +3,18 @@
    [reagent.core :as r]
    [reagent.dom.client :as rdc]))
 
-(def records (r/atom [{:date (js/Date. "2024-09-25") :amount 1 :type :init :remark "💰初始值"}
-                      {:date (js/Date. "2024-09-25") :amount 2 :type :increase :remark "🎉增加啦"}
-                      {:date (js/Date. "2024-09-30") :amount -1 :type :decrease :remark "😋“鸡蛋果冻”"}]))
+(def records (r/atom [{:date (js/Date. "2024-09-25") :amount 1 :type :init :remark "初始值😘"}
+                      {:date (js/Date. "2024-09-25") :amount 2 :type :increase :remark "增加啦🥳"}
+                      {:date (js/Date. "2024-09-30") :amount -1 :type :decrease :remark "“鸡蛋果冻”😋"}]))
 
+(def show-rule (r/atom false))
 (def show (r/atom false))
+(def show-present (r/atom false))
+(def show-past (r/atom false))
+(def show-future (r/atom false))
+(def current (r/atom ""))
+(def rule-interval 5)
+(def rule-amount 2)
 
 (defn get-last-increase-date []
   (let [increases (filter #(= (:type %) :increase) @records)
@@ -18,8 +25,14 @@
 
 (defn get-next-increase-date [date]
   (let [future-date (js/Date. (.getTime date))]
-    (.setDate future-date (+ (.getDate date) 5))
+    (.setDate future-date (+ (.getDate date) rule-interval))
     future-date))
+
+(defn get-all-future-increase-dates
+  ([] (get-all-future-increase-dates (get-last-increase-date)))
+  ([start-date] (let [next-date (get-next-increase-date start-date)]
+                  (when next-date
+                    (cons next-date (lazy-seq (get-all-future-increase-dates next-date)))))))
 
 (defn apply-rule
   []
@@ -29,9 +42,9 @@
     (loop [nid next-increase-date]
       (when (<= nid today)
         (swap! records conj {:date nid
-                             :amount 2
+                             :amount rule-amount
                              :type :increase
-                             :remark "🎉增加啦"})
+                             :remark "增加啦🥳"})
         (recur (get-next-increase-date nid))))))
 
 (defn balance
@@ -39,41 +52,116 @@
   (apply-rule)
   (reduce + (map :amount @records)))
 
-(defn view-balance []
-  (swap! show not))
-
 (defn format-date [date]
   (let [year (.getFullYear date)
         month (.padStart (str (inc (.getMonth date))) 2 "0")
         day (.padStart (str (.getDate date)) 2 "0")]
     (str year "-" month "-" day)))
 
-;;(defn format-date [date]
-;;  (let [formatter (js/Intl.DateTimeFormat. "en-GB" #js {:year "numeric" :month "2-digit" :day "2-digit"})]
-;;    (.format formatter date)))
+(defn present []
+  [:div
+   [:h3.text-2xl.font-bold.text-center.mb-4
+    "现在"]
+   [:p.text-center.mb-4
+    "你的零花钱有 " (balance) " 元."]])
+
+(defn past []
+  [:div
+   [:h3.text-2xl.font-bold.text-center.mb-4
+    "过去"]
+   [:ul.list-disc.list-inside.mb-4.text-sm
+    (let [sorted-records (sort-by :date < @records)]
+      (for [[idx r] (map-indexed vector sorted-records)]
+        ^{:key idx} [:li {:class "font-mono"} (str
+                                               (format-date (:date r))
+                                               ": "
+                                               (if (and
+                                                    (= (:type r) :increase)
+                                                    (pos? (:amount r)))
+                                                 "+"
+                                                 " ")
+                                               (:amount r)
+                                               ", "
+                                               (:remark r))]))]])
+
+(defn future []
+  [:div
+   [:h3.text-2xl.font-bold.text-center.mb-4
+    "未来"]
+   [:ul.list-disc.list-inside.mb-4.text-sm
+    (let [future-dates-10 (take 10 (get-all-future-increase-dates))]
+      (for [[idx d] (map-indexed vector future-dates-10)]
+        ^{:key idx} [:li {:class "font-mono"} (str
+                                               (format-date d)
+                                               ": +"
+                                               rule-amount
+                                               ", 增加啦🥳")]))]])
+
+(defn rule []
+  [:div
+   [:h3.text-xl.font-bold.mb-2
+    "规则"]
+   [:p "每" rule-interval "天增加" rule-amount "元"]])
+
+(defn handle-show []
+  (swap! show not)
+  (reset! show-present true)
+  (reset! current (if @show-present "present" "")))
+
+(defn handle-show-past []
+  (reset! show-past true)
+  (reset! current "past"))
+
+(defn handle-show-present []
+  (reset! show-present true)
+  (reset! current "present"))
+
+(defn handle-show-future []
+  (reset! show-future true)
+  (reset! current "future"))
 
 (defn main-view []
-  [:div
-   [:h1 "蛋堡的零花钱"]
-   [:h2 "🐷💬: 嗨,你好啊"]
-   [:button {:on-click view-balance} "👀看看我有多少零花钱💰"]
-   (when @show
-     [:div
-      [:p "你的零花钱有 " [:span {:style {:font-size "2em"}} (balance)] " 元."]
-      [:ul
-       (let [sorted-records (sort-by :date < @records)]
-         (for [[idx r] (map-indexed vector sorted-records)]
-           ^{:key idx} [:li (str
-                             (format-date (:date r))
-                             ": "
-                             (if (and
-                                  (= (:type r) :increase)
-                                  (pos? (:amount r)))
-                               "+"
-                               "")
-                             (:amount r)
-                             ", "
-                             (:remark r))]))]])])
+  [:div {:class "bg-gray-100"}
+   [:div.min-h-screen.bg-gray-100.flex.items-center.justify-center
+    [:div.bg-white.p-8.rounded-lg.shadow-lg.max-w-md.w-full
+     [:h1.text-3xl.font-bold.mb-6.text-center "👶蛋堡的零花钱💰"]
+     [:div.flex.justify-center.mb-6
+      [:img.w-32.h-32 {:src "img/piggy-bank.png" :alt "Piggy Bank"}]]
+     [:div.flex.justify-center.mb-6
+      [:button.bg-blue-500.hover:bg-blue-700.text-white.font-bold.py-2.px-4.rounded
+       {:on-click #(handle-show)}
+       (if @show "收起来" "打开看看")]]
+     (when @show
+       [:div
+        [:div
+         (when (= @current "past")
+           [past])
+         (when (= @current "present")
+           [present])]
+        (when (= @current "future")
+          [future])
+
+        [:div.flex.items-center.justify-between.mb-4
+         [:button.bg-yellow-500.hover:bg-yellow-700.text-white.font-bold.py-2.px-4.rounded.disabled:opacity-75.disabled:hover:bg-yellow-500
+          {:on-click #(handle-show-past)
+           :disabled (= @current "past")}
+          "< 过去"]
+         [:button.bg-blue-500.hover:bg-blue-700.text-white.font-bold.py-2.px-4.rounded.disabled:opacity-75.disabled:hover:bg-blue-500
+          {:on-click #(handle-show-present)
+           :disabled (= @current "present")}
+          "现在"]
+         [:button.bg-green-500.hover:bg-green-700.text-white.font-bold.py-2.px-4.rounded.disabled:opacity-75.disabled:hover:bg-green-500
+          {:on-click #(handle-show-future)
+           :disabled (= @current "future")}
+          "未来 >"]]
+
+        [:div.flex.justify-center.mb-4
+         [:button.bg-blue-500.hover:bg-blue-700.text-white.font-bold.py-2.px-4.rounded
+          {:on-click #(swap! show-rule not)}
+          (if @show-rule "收起来" "看规则")]]
+        (when @show-rule
+          [:div
+           [rule]])])]]])
 
 (defn init []
   (let [root (rdc/create-root (js/document.getElementById "root"))]
