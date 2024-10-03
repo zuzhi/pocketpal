@@ -47,7 +47,7 @@
                              :remark "增加啦🥳"})
         (recur (get-next-increase-date nid))))))
 
-(defn balance
+(defn get-balance
   []
   (apply-rule)
   (reduce + (map :amount @records)))
@@ -63,39 +63,46 @@
    [:h3.text-2xl.font-bold.text-center.mb-4
     "现在"]
    [:p.text-center.mb-4
-    "你的零花钱有 " (balance) " 元."]])
+    "你的零花钱有 " [:span.font-bold (get-balance)] " 元."]])
 
 (defn past []
   [:div
    [:h3.text-2xl.font-bold.text-center.mb-4
     "过去"]
    [:ul.list-disc.list-inside.mb-4.text-sm
-    (let [sorted-records (sort-by :date < @records)]
-      (for [[idx r] (map-indexed vector sorted-records)]
-        ^{:key idx} [:li {:class "font-mono"} (str
-                                               (format-date (:date r))
-                                               ": "
-                                               (if (and
-                                                    (= (:type r) :increase)
-                                                    (pos? (:amount r)))
-                                                 "+"
-                                                 " ")
-                                               (:amount r)
-                                               ", "
-                                               (:remark r))]))]])
+    (let [sorted-records (sort-by :date < @records)
+          cumulative-amounts (reductions + (map :amount sorted-records))]
+      (for [[idx r cumulative] (map vector (range) sorted-records cumulative-amounts)]
+        ^{:key idx}
+        [:li.font-mono
+         (str
+          (format-date (:date r))
+          ": "
+          (if (pos? (:amount r))
+            "+"
+            "")
+          (:amount r)
+          ", " cumulative
+          ", "
+          (:remark r))]))]])
 
 (defn future []
   [:div
    [:h3.text-2xl.font-bold.text-center.mb-4
     "未来"]
    [:ul.list-disc.list-inside.mb-4.text-sm
-    (let [future-dates-10 (take 10 (get-all-future-increase-dates))]
-      (for [[idx d] (map-indexed vector future-dates-10)]
-        ^{:key idx} [:li {:class "font-mono"} (str
-                                               (format-date d)
-                                               ": +"
-                                               rule-amount
-                                               ", 增加啦🥳")]))]])
+    (let [future-dates-10 (take 10 (get-all-future-increase-dates))
+          balance (get-balance)
+          cumulative-amounts-10 (take 10 (reductions + (+ balance rule-amount) (repeat rule-amount)))]
+      (for [[idx d cumulative] (map vector (range) future-dates-10 cumulative-amounts-10)]
+        ^{:key idx}
+        [:li.font-mono
+         (str
+          (format-date d)
+          ": +"
+          rule-amount
+          ", " cumulative
+          ", 增加啦🥳")]))]])
 
 (defn rule []
   [:div
@@ -121,8 +128,8 @@
   (reset! current "future"))
 
 (defn main-view []
-  [:div {:class "bg-gray-100"}
-   [:div.min-h-screen.bg-gray-100.flex.items-center.justify-center
+  [:div.bg-gray-100
+   [:div.min-h-screen.bg-gray-100.flex.items-center.justify-center.pb-32
     [:div.bg-white.p-8.rounded-lg.shadow-lg.max-w-md.w-full
      [:h1.text-3xl.font-bold.mb-6.text-center "👶蛋堡的零花钱💰"]
      [:div.flex.justify-center.mb-6
@@ -137,9 +144,9 @@
          (when (= @current "past")
            [past])
          (when (= @current "present")
-           [present])]
-        (when (= @current "future")
-          [future])
+           [present])
+         (when (= @current "future")
+           [future])]
 
         [:div.flex.items-center.justify-between.mb-4
          [:button.bg-yellow-500.hover:bg-yellow-700.text-white.font-bold.py-2.px-4.rounded.disabled:opacity-75.disabled:hover:bg-yellow-500
