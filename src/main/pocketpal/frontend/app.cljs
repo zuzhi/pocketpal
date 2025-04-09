@@ -3,7 +3,8 @@
    [reagent.core :as r]
    [reagent.dom.client :as rdc]))
 
-(def records (r/atom [{:date (js/Date. "2025-03-25") :amount 2 :type :init :remark "初始值😘"}]))
+(def records (r/atom [{:date (js/Date. "2025-03-25") :amount 0 :type :init :remark "初始值😘"}
+                      {:date (js/Date. "2025-03-25") :amount 2 :type :increase :remark "增加啦🥳"}]))
 
 (def show-rule (r/atom false))
 (def show (r/atom false))
