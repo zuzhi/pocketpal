@@ -5,7 +5,8 @@
 
 (def records (r/atom [{:date (js/Date. "2025-03-25") :amount 0 :type :init :remark "初始值😘"}
                       {:date (js/Date. "2025-03-25") :amount 2 :type :increase :remark "增加啦🥳"}
-                      {:date (js/Date. "2025-05-29") :amount -28 :type :decrease :remark "买游戏，Labo积木火车"}]))
+                      {:date (js/Date. "2025-05-29") :amount -28 :type :decrease :remark "买游戏，Labo积木火车"}
+                      {:date (js/Date. "2025-7-7") :amount -10 :type :decrease :remark "买视频，轰隆隆！大卡车重装运载"}]))
 
 (def show-rule (r/atom false))
 (def show (r/atom false))
